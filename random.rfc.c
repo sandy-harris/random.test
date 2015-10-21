@@ -1219,7 +1219,9 @@ static void mix_last( struct my_pool *p, u32 *accum )
  * ======================================================
  *
  * Too large a value will be insecure, but it is not clear what
- * "too large" means here.
+ * "too large" means here. The question has been well studied
+ * for counter mode block ciphers, but the analysis does not
+ * apply directly here; at best it allows sensible guesses.
  *
  * For n-bit block size the Yarrow paper shows a generic attack
  * for any counter mode block cipher after 2^(n/3) output blocks,
@@ -1634,13 +1636,21 @@ static void loop_output( struct my_pool *p, u32 *out, u32 nbytes )
 static void buffer2pool( struct my_pool *p, u32 *buff)
 {
 	u32 *a, *b ;
+#ifdef HAVE_64_BIT
+	u64 *c ;
+#endif
 
 	/* normal case, real pool */
 	if( p->data != NULL )	{
 		spin_lock( &p->lock ) ;
 		a = p->p ;
 		b = p->q ;
+#ifdef HAVE_64_BIT
+		c = (u64 *) a ;
+		*c = ((*c) << 13) | ((*c) >> (64-13)) ;
+#else
 		a[0] = ROTL( a[0], 5 ) ;
+#endif
 		xor128( a, buff ) ;
 		pht128( a ) ;
 #ifdef CONSERVATIVE
