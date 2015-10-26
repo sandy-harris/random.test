@@ -2088,6 +2088,11 @@ static void buffer2counter( u32 *data )
 	 * this is the only place they are used
 	 */
 	addmul( (u8 *) counter, (u8 *) data, 16, (u8 *) (counter+4) ) ;
+	/*
+	 * make the mixing non-invertible
+	 * see reference to Preneel et al. in comment for mix_last()
+	 */
+	xor128( counter, counter+4 ) ;
 
 	loop_count = 0 ;
 	iter_count = 0 ;
