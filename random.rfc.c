@@ -367,12 +367,6 @@ static struct my_pool input_pool, blocking_pool, nonblocking_pool, dummy_pool ;
  */
 static int got_hw_rng = 1 ;
 
-/*
- * 8 words at end of constants[] array
- * used as counter[]
- */
-static u32 *counter = constants + ARRAY_WORDS ;
-
 static void load_pool_struct( struct my_pool *p, u32 *address, u32 size, u32 delta, u32 *const_entry, u32 lock )
 {
 	p->A = const_entry ;

@@ -130,9 +130,10 @@ int main(int argc, char **argv)
  * 128-bit counter with some extra data for mixing
  */
 	printf("#define USE_GCM_HASH\n" ) ;
-	printf("#define ARRAY_WORDS %d\n\n", ARRAY_WORDS) ;
+	printf("#define ARRAY_WORDS %d\n", ARRAY_WORDS) ;
 
 	do_block( ARRAY_WORDS+8, "constants" ) ;
+	printf("\nstatic u32 *counter = constants + ARRAY_WORDS ;\n") ;
 #endif
 
 	exit(0) ;
