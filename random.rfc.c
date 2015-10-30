@@ -419,13 +419,13 @@ static void load_all_pools()
  * forward declarations and a few macros
  *****************************************************************/
 
-static void init_random() ;
+static void init_random(void) ;
 
 /* fill an output buffer from a pool */
 static void loop_output( struct my_pool *, u32 *, u32 ) ;
 
-static void count() ;
-static void counter_any() ;
+static void count(void) ;
+static void counter_any(void) ;
 
 /* get 128 bits */
 static int get_or_fail( struct my_pool *, u32 * ) ;
@@ -443,8 +443,8 @@ static void buffer2counter( u32 * ) ;
 
 /* hw rng functions */
 static int get_hw_random( u32 * ) ;
-static int load_constants() ;
-static int load_input() ;
+static int load_constants(void) ;
+static int load_input(void) ;
 
 /* rotate a 32-bit word left n bits */
 #define ROTL(v, n) ( ((v) << (n)) | ((v) >> (32 - (n))) )
