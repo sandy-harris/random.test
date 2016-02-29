@@ -339,7 +339,7 @@ struct my_pool	{
 
 // static void credit_entropy_bits(struct entropy_store *r, int nbits)
 
-static void credit_entropy_bits(struct my_pool *p, int nbits)
+static void credit_entropy_bits(struct entropy_store *r, int nbits)
 {
 	int x ;
 	x = (int) ENTROPY_BITS(p) ;
@@ -367,7 +367,7 @@ static struct my_pool input_pool, blocking_pool, nonblocking_pool, dummy_pool ;
  */
 static int got_hw_rng = 1 ;
 
-static void load_pool_struct( struct my_pool *p, u32 *address, u32 size, u32 delta, u32 *const_entry, u32 lock )
+static void load_pool_struct( struct entropy_store *r, u32 *address, u32 size, u32 delta, u32 *const_entry, u32 lock )
 {
 	p->A = const_entry ;
 	p->B = const_entry + 4 ;
@@ -602,6 +602,10 @@ static inline void aria_mix( u8 *x )
  * the important properties remain. They are still
  * invertible & still make all 32-bit output words
  * depend on all input words.
+ *
+ * Only add128(), add256() and pht128() change
+ * in the 64-bit versions; larger PHTs just
+ * call them.
  */
 
 static void pht128( u32 *x )
@@ -735,7 +739,7 @@ static spinlock_t constants_lock = SPINLOCK_UNLOCKED ;
  * in place mixing, uses no external data
  * PHT + a rotation to make it nonlinear
  */
-static void mix_const_p( struct my_pool *p )
+static void mix_const_p( struct entropy_store *r )
 {
 	u32 *x ;
 #ifdef HAVE_64_BIT
@@ -774,7 +778,7 @@ static void mix_const_p( struct my_pool *p )
  *
  * All buffer2*() routines zero the input data after using it
  */
-static inline void buffer2array( struct my_pool *p, u32 *data )
+static inline void buffer2array( struct entropy_store *r, u32 *data )
 {
 	u32 *x;
 	x = p->A ;
@@ -1055,7 +1059,7 @@ static void mix_in( u8 *data, u32 nbytes, u8 *mul, u32 *accum)
 #define FREQUENCY	  101
 #define FREQDUMMY	   11
 
-static void mix_first( struct my_pool *p, u32 *accum )
+static void mix_first( struct entropy_store *r, u32 *accum )
 {
 	u32 x ;
 
@@ -1142,7 +1146,7 @@ static void mix_first( struct my_pool *p, u32 *accum )
  * from among that 12.
  */
 
-static void mix_last( struct my_pool *p, u32 *accum )
+static void mix_last( struct entropy_store *r, u32 *accum )
 {
 	u32 temp[4] ;
 
@@ -1269,7 +1273,7 @@ static void mix_last( struct my_pool *p, u32 *accum )
  * try to get 128 bits from a pool
  * return 1 for success, 0 for failure
  */
-static int get_or_fail( struct my_pool *p, u32 *out )
+static int get_or_fail( struct entropy_store *r, u32 *out )
 {
 	int flag ;
 	u32 temp[4] ;
@@ -1330,7 +1334,7 @@ static int get_or_fail( struct my_pool *p, u32 *out )
 static int get_any( u32 *out )
 {
 	int flag ;
-	struct my_pool *p ;
+	struct entropy_store *r ;
 
 	/*
 	 * use the input pool if it has plenty
@@ -1390,7 +1394,7 @@ static int get_any( u32 *out )
 
 static u32 rekey_flip_flop = 0 ;
 
-static void get128( struct my_pool *p, u32 *out )
+static void get128( struct entropy_store *r, u32 *out )
 {
 	u32 temp[4] ;
 
@@ -1521,7 +1525,7 @@ static void extract_buf(struct entropy_store *r, __u8 *out)
 
  * so first cut at integration would be
 
-static void extract_buf(struct my_pool *p, u8 *out)
+static void extract_buf(struct entropy_store *r, u8 *out)
 {
 	get128( p, (u32 *) out ) ;
 }
@@ -1532,7 +1536,7 @@ static void extract_buf(struct my_pool *p, u8 *out)
  * for input or blocking pool, this may block
  *****************************************************************/
 
-static void loop_output( struct my_pool *p, u32 *out, u32 nbytes )
+static void loop_output( struct entropy_store *r, u32 *out, u32 nbytes )
 {
 	u32 temp[4] ;
 	int n, m ;
@@ -1627,29 +1631,21 @@ static void loop_output( struct my_pool *p, u32 *out, u32 nbytes )
  * This is the only stirring the output pools get, except during
  * initialisation.
  */
-static void buffer2pool( struct my_pool *p, u32 *buff)
+static void buffer2pool( struct entropy_store *r, u32 *buff)
 {
 	u32 *a, *b ;
-#ifdef HAVE_64_BIT
-	u64 *c ;
-#endif
 
 	/* normal case, real pool */
-	if( p->data != NULL )	{
-		spin_lock( &p->lock ) ;
-		a = p->p ;
-		b = p->q ;
-#ifdef HAVE_64_BIT
-		c = (u64 *) a ;
-		*c = ((*c) << 13) | ((*c) >> (64-13)) ;
-#else
+	if( r->data != NULL )	{
+		spin_lock( &r->lock ) ;
+		a = r->p ;
+		b = r->q ;
+		/* mix one row, add new data */
 		a[0] = ROTL( a[0], 5 ) ;
-#endif
 		xor128( a, buff ) ;
 		pht128( a ) ;
-#ifdef CONSERVATIVE
+		/* mix other row */
 		aria_mix( (u8 *) b ) ;
-#endif
 		/* PHTs between rows */
 		add128( a, b ) ;
 		add128( b, a ) ;
@@ -1700,7 +1696,7 @@ static void init_std_data(struct entropy_store *r)
 			rv = random_get_entropy();
 		mix_pool_bytes(r, &rv, sizeof(rv));
 	}
-	mix_pool_bytes(r, utsname(), sizeof(*(utsname())));
+	mix_pool_bytes(r, (u8 *) utsname(), sizeof(*(utsname())));
 }
 */
 
@@ -2180,7 +2176,7 @@ static u32 *end_buffer = (pools+INPUT_POOL_WORDS) ;
 
 static int load_input()
 {
-	struct my_pool *p ;
+	struct entropy_store *r ;
 	u32 x, temp[4] ;
 	int i, n, r, limit, e_count ;
 
